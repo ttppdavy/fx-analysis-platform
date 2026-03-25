@@ -2,32 +2,29 @@
 import { supabaseAdmin } from '@/lib/supabase-server'
 import * as XLSX from 'xlsx'
 
-const TRADE_SHEETS = [
-  '即汇通',
-  '外汇买卖',
-  '远期',
-  '掉期',
-  '货币互换',
-  '期权',
-  '外币掉期',
-  '期权组合',
-  '掉期违约',
-  '期权违约',
-  '即远期违约',
-  '柜台债现券买卖',
-]
-
 export async function POST(req: Request) {
   try {
-    const { fileType, dataYear, storagePath, sourceFilename, bucket } = await req.json()
+    const {
+      fileType,
+      dataYear,
+      tableName,
+      storagePaths,
+      sourceFilenames,
+      bucket,
+    } = await req.json()
+
+    const sourceFilenameText = Array.isArray(sourceFilenames)
+      ? sourceFilenames.join(' | ')
+      : ''
 
     const { data: batch, error: batchErr } = await supabaseAdmin
       .from('etl_batches')
       .insert({
         file_type: fileType,
         data_year: dataYear,
-        source_filename: sourceFilename,
-        storage_path: storagePath,
+        table_name: tableName,
+        source_filename: sourceFilenameText,
+        storage_path: Array.isArray(storagePaths) ? storagePaths.join(' | ') : '',
         status: 'processing',
       })
       .select()
@@ -35,30 +32,38 @@ export async function POST(req: Request) {
 
     if (batchErr) throw batchErr
 
-    const { data: fileData, error: downloadErr } = await supabaseAdmin
-      .storage
-      .from(bucket)
-      .download(storagePath)
-
-    if (downloadErr) throw downloadErr
-
-    const arrayBuffer = await fileData.arrayBuffer()
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' })
-
     let rowCount = 0
 
     if (fileType === 'trade') {
-      await supabaseAdmin.from('trade_raw_rows').delete().eq('data_year', dataYear)
+      if (!tableName) {
+        throw new Error('交易表必须选择表名')
+      }
 
-      for (const sheetName of TRADE_SHEETS) {
-        if (!workbook.SheetNames.includes(sheetName)) continue
-        const ws = workbook.Sheets[sheetName]
+      await supabaseAdmin
+        .from('trade_raw_rows')
+        .delete()
+        .eq('data_year', dataYear)
+        .eq('sheet_name', tableName)
+
+      for (const storagePath of storagePaths) {
+        const { data: fileData, error: downloadErr } = await supabaseAdmin
+          .storage
+          .from(bucket)
+          .download(storagePath)
+
+        if (downloadErr) throw downloadErr
+
+        const arrayBuffer = await fileData.arrayBuffer()
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+
+        const firstSheetName = workbook.SheetNames[0]
+        const ws = workbook.Sheets[firstSheetName]
         const rows = XLSX.utils.sheet_to_json(ws, { defval: null })
 
         const payload = rows.map((row: any, idx: number) => ({
           batch_id: batch.id,
           data_year: dataYear,
-          sheet_name: sheetName,
+          sheet_name: tableName,
           excel_row_num: idx + 2,
           row_data: row,
         }))
@@ -72,8 +77,19 @@ export async function POST(req: Request) {
     }
 
     if (fileType === 'gold_lease') {
+      const storagePath = storagePaths[0]
+
       await supabaseAdmin.from('gold_lease_trades').delete().eq('data_year', dataYear)
 
+      const { data: fileData, error: downloadErr } = await supabaseAdmin
+        .storage
+        .from(bucket)
+        .download(storagePath)
+
+      if (downloadErr) throw downloadErr
+
+      const arrayBuffer = await fileData.arrayBuffer()
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' })
       const ws = workbook.Sheets[workbook.SheetNames[0]]
       const rows = XLSX.utils.sheet_to_json(ws, { defval: null }) as any[]
 
@@ -103,8 +119,19 @@ export async function POST(req: Request) {
     }
 
     if (fileType === 'crm') {
+      const storagePath = storagePaths[0]
+
       await supabaseAdmin.from('crm_customer_tags').delete().eq('data_year', dataYear)
 
+      const { data: fileData, error: downloadErr } = await supabaseAdmin
+        .storage
+        .from(bucket)
+        .download(storagePath)
+
+      if (downloadErr) throw downloadErr
+
+      const arrayBuffer = await fileData.arrayBuffer()
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' })
       const ws = workbook.Sheets[workbook.SheetNames[0]]
       const rows = XLSX.utils.sheet_to_json(ws, { defval: null }) as any[]
 
@@ -133,6 +160,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: `导入成功，${rowCount} 行` })
   } catch (e: any) {
-    return NextResponse.json({ message: e.message || '导入失败' }, { status: 500 })
+    return NextResponse.json(
+      { message: e.message || '导入失败' },
+      { status: 500 }
+    )
   }
 }
