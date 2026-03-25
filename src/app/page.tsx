@@ -6,17 +6,7 @@ import * as tus from 'tus-js-client'
 
 const TRADE_TABLES = [
   '即汇通',
-  '外汇买卖',
-  '远期',
-  '掉期',
-  '货币互换',
-  '期权',
-  '外币掉期',
-  '期权组合',
-  '掉期违约',
-  '期权违约',
-  '即远期违约',
-  '柜台债现券买卖',
+'其他交易表',
 ]
 
 export default function HomePage() {
