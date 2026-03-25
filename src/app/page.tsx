@@ -1,4 +1,4 @@
-'use client'
+ï»¿'use client'
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -17,7 +17,7 @@ export default function HomePage() {
 
   async function handleUpload() {
     if (!file) {
-      setMsg('ÇëÏÈÑ¡ÔñÎÄ¼ş')
+      setMsg('è¯·å…ˆé€‰æ‹©æ–‡ä»¶')
       return
     }
 
@@ -29,7 +29,7 @@ export default function HomePage() {
       .upload(filePath, file, { upsert: true })
 
     if (error) {
-      setMsg(`ÉÏ´«Ê§°Ü£º${error.message}`)
+      setMsg(`ä¸Šä¼ å¤±è´¥ï¼š${error.message}`)
       return
     }
 
@@ -46,15 +46,15 @@ export default function HomePage() {
     })
 
     const data = await res.json()
-    setMsg(data.message || 'Íê³É')
+    setMsg(data.message || 'å®Œæˆ')
   }
 
   return (
     <main style={{ padding: 24 }}>
-      <h1>Êı¾İÉÏ´«</h1>
+      <h1>æ•°æ®ä¸Šä¼ </h1>
 
       <div style={{ marginBottom: 12 }}>
-        <label>Äê·İ£º</label>
+        <label>å¹´ä»½ï¼š</label>
         <select value={year} onChange={(e) => setYear(e.target.value)}>
           <option value="2025">2025</option>
           <option value="2026">2026</option>
@@ -62,10 +62,10 @@ export default function HomePage() {
       </div>
 
       <div style={{ marginBottom: 12 }}>
-        <label>ÎÄ¼şÀàĞÍ£º</label>
+        <label>æ–‡ä»¶ç±»å‹ï¼š</label>
         <select value={fileType} onChange={(e) => setFileType(e.target.value)}>
-          <option value="trade">½»Ò×±í</option>
-          <option value="gold_lease">»Æ½ğ×âÁŞ</option>
+          <option value="trade">äº¤æ˜“è¡¨</option>
+          <option value="gold_lease">é»„é‡‘ç§Ÿèµ</option>
           <option value="crm">CRM</option>
         </select>
       </div>
@@ -78,7 +78,7 @@ export default function HomePage() {
         />
       </div>
 
-      <button onClick={handleUpload}>ÉÏ´«²¢µ¼Èë</button>
+      <button onClick={handleUpload}>ä¸Šä¼ å¹¶å¯¼å…¥</button>
 
       <p>{msg}</p>
     </main>
