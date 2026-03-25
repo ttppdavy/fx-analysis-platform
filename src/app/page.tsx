@@ -4,10 +4,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase-client'
 import * as tus from 'tus-js-client'
 
-const TRADE_TABLES = [
-  '即汇通',
-'其他交易表',
-]
+const TRADE_TABLES = ['即汇通', '其他交易表']
 
 export default function HomePage() {
   const [year, setYear] = useState('2026')
@@ -25,6 +22,19 @@ export default function HomePage() {
     crm: 'crm-files',
   }
 
+  function safeFileName(name: string) {
+    const extIndex = name.lastIndexOf('.')
+    const ext = extIndex >= 0 ? name.slice(extIndex) : ''
+    const base = extIndex >= 0 ? name.slice(0, extIndex) : name
+
+    const cleaned = base
+      .replace(/[^\w\-]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+
+    return `${cleaned || 'file'}${ext.toLowerCase()}`
+  }
+
   function handleFiles(selected: FileList | null) {
     if (!selected) return
     const arr = Array.from(selected)
@@ -37,7 +47,7 @@ export default function HomePage() {
         }
       } else {
         if (arr.length > 1) {
-          setMsg('除即汇通外，其他交易表一次只能上传 1 个文件')
+          setMsg('其他交易表一次只能上传 1 个文件')
           return
         }
       }
@@ -52,10 +62,21 @@ export default function HomePage() {
     setFiles(arr)
   }
 
-  async function uploadOneFile(file: File, bucket: string, filePath: string, index: number, total: number) {
+  async function uploadOneFile(
+    file: File,
+    bucket: string,
+    filePath: string,
+    index: number,
+    total: number,
+  ) {
     return new Promise<string>((resolve, reject) => {
+      const directStorageUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(
+        '.supabase.co',
+        '.storage.supabase.co',
+      )
+
       const upload = new tus.Upload(file, {
-        endpoint: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/upload/resumable`,
+        endpoint: `${directStorageUrl}/storage/v1/upload/resumable`,
         retryDelays: [0, 1000, 3000, 5000],
         headers: {
           authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
@@ -104,7 +125,7 @@ export default function HomePage() {
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
-        const filePath = `${year}/${Date.now()}_${i + 1}_${file.name}`
+        const filePath = `${year}/${Date.now()}_${i + 1}_${safeFileName(file.name)}`
         const savedPath = await uploadOneFile(file, bucket, filePath, i, files.length)
         storagePaths.push(savedPath)
       }
@@ -121,7 +142,7 @@ export default function HomePage() {
           dataYear: Number(year),
           tableName: fileType === 'trade' ? tableName : null,
           storagePaths,
-          sourceFilenames: files.map(f => f.name),
+          sourceFilenames: files.map((f) => f.name),
           bucket,
         }),
       })
@@ -145,12 +166,27 @@ export default function HomePage() {
   }
 
   return (
-    <main style={{ maxWidth: 760, margin: '0 auto', padding: 24, fontFamily: 'Arial' }}>
-      <h1 style={{ fontSize: 28, marginBottom: 24 }}>数据上传</h1>
+    <main
+      style={{
+        maxWidth: 820,
+        margin: '0 auto',
+        padding: 24,
+        fontFamily: 'Arial, sans-serif',
+      }}
+    >
+      <h1 style={{ fontSize: 30, marginBottom: 24 }}>数据上传</h1>
 
-      <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+      <div
+        style={{
+          border: '1px solid #ddd',
+          borderRadius: 14,
+          padding: 24,
+          background: '#fff',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+        }}
+      >
         <div style={{ marginBottom: 16 }}>
-          <label>年份：</label>{' '}
+          <label style={{ display: 'inline-block', width: 90 }}>年份：</label>
           <select value={year} onChange={(e) => setYear(e.target.value)}>
             <option value="2025">2025</option>
             <option value="2026">2026</option>
@@ -158,7 +194,7 @@ export default function HomePage() {
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <label>文件类型：</label>{' '}
+          <label style={{ display: 'inline-block', width: 90 }}>文件类型：</label>
           <select
             value={fileType}
             onChange={(e) => {
@@ -175,7 +211,7 @@ export default function HomePage() {
 
         {fileType === 'trade' && (
           <div style={{ marginBottom: 16 }}>
-            <label>表名：</label>{' '}
+            <label style={{ display: 'inline-block', width: 90 }}>交易类型：</label>
             <select
               value={tableName}
               onChange={(e) => {
@@ -193,12 +229,24 @@ export default function HomePage() {
           </div>
         )}
 
-        <div style={{ marginBottom: 12, fontSize: 14, color: '#555' }}>
+        <div
+          style={{
+            marginBottom: 16,
+            padding: 12,
+            background: '#f7f7f7',
+            borderRadius: 8,
+            fontSize: 14,
+            color: '#555',
+            lineHeight: 1.6,
+          }}
+        >
           {fileType === 'trade'
             ? tableName === '即汇通'
-              ? '即汇通一次最多上传 3 个文件'
-              : '其他交易表一次只能上传 1 个文件'
-            : '黄金租赁和 CRM 一次只能上传 1 个文件'}
+              ? '即汇通：一次最多上传 3 个文件，系统会自动合并导入。'
+              : '其他交易表：请放在 1 个 xlsx 文件里上传。'
+            : fileType === 'gold_lease'
+              ? '黄金租赁：一次上传 1 个文件。'
+              : 'CRM：一次上传 1 个文件。'}
         </div>
 
         <div style={{ marginBottom: 16 }}>
@@ -211,11 +259,20 @@ export default function HomePage() {
         </div>
 
         {files.length > 0 && (
-          <div style={{ marginBottom: 16, fontSize: 14 }}>
-            <div style={{ marginBottom: 8 }}>已选文件：</div>
+          <div
+            style={{
+              marginBottom: 16,
+              padding: 12,
+              background: '#fafafa',
+              border: '1px solid #eee',
+              borderRadius: 8,
+              fontSize: 14,
+            }}
+          >
+            <div style={{ marginBottom: 8, fontWeight: 700 }}>已选文件：</div>
             {files.map((file, idx) => (
-              <div key={idx}>
-                {file.name}（{(file.size / 1024 / 1024).toFixed(2)} MB）
+              <div key={idx} style={{ marginBottom: 4 }}>
+                {idx + 1}. {file.name}（{(file.size / 1024 / 1024).toFixed(2)} MB）
               </div>
             ))}
           </div>
@@ -242,7 +299,7 @@ export default function HomePage() {
                 }}
               />
             </div>
-            <div style={{ fontSize: 14 }}>
+            <div style={{ fontSize: 14, color: '#333' }}>
               {uploading ? `上传中：${progress}%` : '正在导入数据库，请稍等...'}
             </div>
           </div>
@@ -258,13 +315,24 @@ export default function HomePage() {
             background: uploading || importing ? '#999' : '#1677ff',
             color: '#fff',
             cursor: uploading || importing ? 'not-allowed' : 'pointer',
+            fontSize: 15,
           }}
         >
           {uploading ? '上传中...' : importing ? '导入中...' : '上传并导入'}
         </button>
 
         {msg && (
-          <div style={{ marginTop: 16, fontSize: 14, color: '#333' }}>
+          <div
+            style={{
+              marginTop: 16,
+              padding: 12,
+              borderRadius: 8,
+              background: '#f8f8f8',
+              fontSize: 14,
+              color: '#333',
+              whiteSpace: 'pre-wrap',
+            }}
+          >
             {msg}
           </div>
         )}
