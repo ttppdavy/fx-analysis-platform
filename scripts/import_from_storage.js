@@ -56,7 +56,7 @@ async function downloadWorkbook(bucket, path) {
   return XLSX.read(arrayBuffer, { type: 'array', cellDates: true })
 }
 
-async function insertInBatches(table, rows, size = 1000) {
+async function insertInBatches(table, rows, size = 200) {
   for (let i = 0; i < rows.length; i += size) {
     const chunk = rows.slice(i, i + size)
     const { error } = await supabase.from(table).insert(chunk)
@@ -73,15 +73,20 @@ async function run() {
     tableName,      // 即汇通 / 其他交易表 / null
     bucket,         // trade-files / gold-files / crm-files
     storagePaths,   // array
+    importMode,     // replace / append
   } = job
 
+  const mode = importMode || 'replace'
+
   if (fileType === 'trade' && tableName === '即汇通') {
-    const { error: delErr } = await supabase
-      .from('trade_raw_rows')
-      .delete()
-      .eq('data_year', dataYear)
-      .eq('sheet_name', '即汇通')
-    if (delErr) throw delErr
+    if (mode === 'replace') {
+      const { error: delErr } = await supabase
+        .from('trade_raw_rows')
+        .delete()
+        .eq('data_year', dataYear)
+        .eq('sheet_name', '即汇通')
+      if (delErr) throw delErr
+    }
 
     for (const storagePath of storagePaths) {
       const workbook = await downloadWorkbook(bucket, storagePath)
@@ -97,7 +102,7 @@ async function run() {
       }))
 
       if (payload.length) {
-        await insertInBatches('trade_raw_rows', payload, 1000)
+        await insertInBatches('trade_raw_rows', payload, 200)
       }
     }
   }
@@ -125,7 +130,7 @@ async function run() {
       }))
 
       if (payload.length) {
-        await insertInBatches('trade_raw_rows', payload, 1000)
+        await insertInBatches('trade_raw_rows', payload, 200)
       }
     }
   }
@@ -159,7 +164,7 @@ async function run() {
     }))
 
     if (payload.length) {
-      await insertInBatches('gold_lease_trades', payload, 1000)
+      await insertInBatches('gold_lease_trades', payload, 200)
     }
   }
 
@@ -183,7 +188,7 @@ async function run() {
       }))
 
     if (payload.length) {
-      await insertInBatches('crm_customer_tags', payload, 1000)
+      await insertInBatches('crm_customer_tags', payload, 200)
     }
   }
 
