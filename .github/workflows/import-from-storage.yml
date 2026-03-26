@@ -1,0 +1,32 @@
+﻿name: import-from-storage
+
+on:
+  workflow_dispatch:
+    inputs:
+      import_job_json:
+        description: "导入任务JSON"
+        required: true
+        type: string
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: npm install
+
+      - name: Run import
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          IMPORT_JOB_JSON: ${{ inputs.import_job_json }}
+        run: npm run import:storage

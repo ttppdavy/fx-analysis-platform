@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "fx-analysis-platform",
   "version": "0.1.0",
   "private": true,
@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
+  "lint": "eslint",
+  "import:storage": "node scripts/import_from_storage.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.0",
